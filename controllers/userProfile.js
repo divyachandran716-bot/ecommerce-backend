@@ -1,0 +1,169 @@
+// const User = require('../models/user');
+
+
+// // 🔹 Get current logged-in user profile
+// exports.getProfile = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id).select('-password');
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     res.json(user);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+// // 🔹 Update user profile
+// exports.updateProfile = async (req, res) => {
+//   try {
+//     const { name, email } = req.body;
+
+//     const user = await User.findById(req.user.id);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     user.name = name || user.name;
+//     user.email = email || user.email;
+
+//     const updatedUser = await user.save();
+
+//     res.json({
+//       id: updatedUser._id,
+//       name: updatedUser.name,
+//       email: updatedUser.email,
+//       role: updatedUser.role
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+// // 🔹 Delete user profile
+// exports.deleteProfile = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.user.id);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     await user.deleteOne();
+
+//     res.json({ message: "User deleted successfully" });
+
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+// // 🔹 Admin: Get all users
+// exports.getAllUsers = async (req, res) => {
+//   try {
+//     const users = await User.find().select('-password');
+//     res.json(users);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+const User = require("../models/user");
+const bcrypt = require("bcryptjs");
+
+
+// ✅ GET ALL USERS (Admin only)
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// ✅ GET SINGLE USER PROFILE (Logged-in user)
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// ✅ UPDATE USER PROFILE
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // update fields
+    user.name = name || user.name;
+    user.email = email || user.email;
+
+    // if password is updated → hash it
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    const updatedUser = await user.save();
+
+    res.json({
+      message: "Profile updated",
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// ✅ DELETE USER (Admin or Self)
+exports.deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // allow if admin OR same user
+    if (req.user.role !== "admin" && req.user.id !== userId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const user = await User.findByIdAndDelete(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "User deleted successfully" });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
